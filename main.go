@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 type ShortUrls struct {
@@ -24,16 +23,32 @@ func shortenURL(url string) string {
 
 func handleGenerateShortUrl(db *ShortUrls, port string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		// Here the url should be passed as a JSON object, for example:
+		// curl -X POST -d '{"url": "http://www.google.it"}' http://localhost:8080/create
+		// rather than via form data.
+
 		err := r.ParseForm()
 		if err != nil {
+			// Doing log.Fatal means that any client can crash the server by
+			// just sending a malformed request. You should log the error, send
+			// a reasoannable http status to the client and return to end the
+			// request.
 			log.Fatal("Errore:", err)
 		}
 
 		url := r.PostForm.Get("url")
 		if url == "" {
+			// same here.
 			log.Fatal("Il valore del parametro url non è corretto o è vuoto")
 		}
 
+		// before proceeding with storing the URL, we should check the URL is
+		// valid, for example with:
+		//
+		// _, err := url.Parse(url)
+		//
+		// and return the appropriate status code if the URL is not valid.
 		shortUrl := shortenURL(url)
 
 		db.urls[shortUrl] = url
@@ -45,12 +60,16 @@ func handleGenerateShortUrl(db *ShortUrls, port string) http.HandlerFunc {
 
 func handleRedirect(db *ShortUrls) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		shortUrl := strings.SplitAfter(r.URL.Path, "/short/")[1]
-		if shortUrl == "" {
-			log.Fatal("Short url non presente")
-		}
 
-		http.Redirect(w, r, db.urls[shortUrl], http.StatusMovedPermanently)
+		shortcode := r.PathValue("shortcode")
+
+		// shortUrl := strings.SplitAfter(r.URL.Path, "/short/")[1]
+		// if shortUrl == "" {
+		// 	// same here about the use of log.Fatal
+		// 	log.Fatal("Short url non presente")
+		// }
+
+		http.Redirect(w, r, db.urls[shortcode], http.StatusMovedPermanently)
 	}
 }
 
@@ -65,7 +84,13 @@ func main() {
 	PORT := ":" + strconv.Itoa(portNum)
 
 	http.HandleFunc("POST /create", handleGenerateShortUrl(&db, PORT))
-	http.HandleFunc("/short/", handleRedirect(&db))
+	// Here you could use "/short/{code}", this has the advantage of only
+	// entering in the handler if code is non-empty.
+	//
+	// If you do this, then in the handler you can directly use:
+	//  r.PathValue("code")
+	// to access the value of 'code'.
+	http.HandleFunc("/short/{code}", handleRedirect(&db))
 
 	fmt.Println("server start on ", PORT)
 	http.ListenAndServe(PORT, nil)
