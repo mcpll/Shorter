@@ -5,9 +5,9 @@ Creation of a URL Shortener
 
 1. Run the script from the terminal, specifying the port:
    ```bash
-   ./shortner -p 2020```
+   ./shortner -p 2020
 Note: If no port is specified, the server will automatically start on port 8080.
-
+```
 2. Execute a curl command like the following from the terminal:
 
  ```bash
